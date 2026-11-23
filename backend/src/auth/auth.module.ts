@@ -1,24 +1,16 @@
 
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { Users, UsersSchema } from './model/users.model';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategie';
+import { UsersModule } from '../users/users.module';
 
 @Module({
     imports: [
         ConfigModule,
-
-        MongooseModule.forFeature([
-            {
-                name: Users.name,
-                schema: UsersSchema,
-            },
-        ]),
-
+        UsersModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
             inject: [ConfigService],

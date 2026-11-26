@@ -1,19 +1,27 @@
 import { Module } from '@nestjs/common';
-import { DeliveriesService } from './deliveries.service';
-import { DeliveriesController } from './deliveries.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Delivery, DeliverySchema } from './model/delivery.model';
+
+import { DeliveriesController } from './deliveries.controller';
+import { DeliveriesService } from './deliveries.service';
+
+import {
+    Delivery,
+    DeliverySchema,
+} from './model/delivery.model';
+
+import { OrdersModule } from '../orders/orders.module';
+import { Users, UsersSchema } from '../users/model/users.model';
 
 @Module({
-  imports :[
-      MongooseModule.forFeature([
-                  {
-                      name: Delivery.name,
-                      schema: DeliverySchema,
-                  },
-              ]),
+    imports: [
+        MongooseModule.forFeature([
+            { name: Delivery.name, schema: DeliverySchema },
+            { name: Users.name, schema: UsersSchema },
+        ]),
+        OrdersModule,
     ],
-  providers: [DeliveriesService],
-  controllers: [DeliveriesController]
+    controllers: [DeliveriesController],
+    providers: [DeliveriesService],
+    exports: [DeliveriesService],
 })
 export class DeliveriesModule {}

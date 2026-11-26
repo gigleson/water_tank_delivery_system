@@ -1,8 +1,5 @@
 import {
     BadRequestException,
-    Controller,
-    Post,
-    Param,
     UploadedFile,
     UseInterceptors,
     ParseFilePipe,
@@ -12,13 +9,107 @@ import {
 
 import { FileInterceptor } from '@nestjs/platform-express';
 import { paymentPhotoUploadConfig } from './config/payment-photo.config';
+// import { DeliveriesService } from './deliveries.service';
+
+
+import {
+    Body,
+    Controller,
+    Get,
+    Post,
+    Param,
+    UseGuards,
+} from '@nestjs/common';
+
+import { AuthGuard } from '@nestjs/passport';
+
+import {
+    ApiTags,
+    ApiBearerAuth,
+    ApiOperation,
+    ApiResponse,
+    ApiParam,
+} from '@nestjs/swagger';
+
 import { DeliveriesService } from './deliveries.service';
+import { CreateDeliveryDto } from './dto/create-delivery.dto';
 
+
+@ApiTags('Deliveries')
+@ApiBearerAuth()
 @Controller('deliveries')
+@UseGuards(AuthGuard('jwt'))
 export class DeliveriesController {
-    constructor(private deliveriesService: DeliveriesService) {}
+    constructor(
+        private readonly deliveriesService: DeliveriesService,
+    ) {}
 
-@Post(':id/payment-photo')
+    // CREATE DELIVERY
+    @Post()
+    @ApiOperation({
+        summary: 'Create a delivery',
+        description: 'Creates a delivery linked to an existing order.',
+    })
+    @ApiResponse({
+        status: 201,
+        description: 'Delivery created successfully',
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Invalid order or driver ID',
+    })
+    @ApiResponse({
+        status: 401,
+        description: 'Unauthorized',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Order or driver not found',
+    })
+    async createDelivery(
+        @Body() createDeliveryDto: CreateDeliveryDto,
+    ) {
+        return this.deliveriesService.createDelivery(
+            createDeliveryDto,
+        );
+    }
+
+    // GET ALL DELIVERIES
+    @Get()
+    @ApiOperation({
+        summary: 'Get all deliveries',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Deliveries retrieved successfully',
+    })
+    async getDeliveries() {
+        return this.deliveriesService.getDeliveries();
+    }
+
+    // GET DELIVERY BY ID
+    @Get(':id')
+    @ApiOperation({
+        summary: 'Get delivery by ID',
+    })
+    @ApiParam({
+        name: 'id',
+        description: 'MongoDB delivery ID',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Delivery retrieved successfully',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Delivery not found',
+    })
+    async getDeliveryById(
+        @Param('id') id: string,
+    ) {
+        return this.deliveriesService.getDeliveryById(id);
+    }
+    @Post(':id/payment-photo')
 @UseInterceptors(
     FileInterceptor('paymentPhoto', paymentPhotoUploadConfig),
 )

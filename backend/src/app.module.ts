@@ -8,6 +8,8 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './users/users.module';
 import { DeliveriesModule } from './deliveries/deliveries.module';
+import { OrdersModule } from './orders/orders.module';
+
 
 
 @Module({
@@ -17,6 +19,7 @@ import { DeliveriesModule } from './deliveries/deliveries.module';
     AuthModule,
     UsersModule,
     DeliveriesModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -14,12 +14,14 @@ import {
 } from './model/order.model';
 
 import { CreateOrderDto } from './dto/create-order.dto';
+import { RedisService } from '../common/redis/redis.service';
 
 @Injectable()
 export class OrdersService {
     constructor(
         @InjectModel(Order.name)
         private readonly orderModel: Model<OrderDocument>,
+        private readonly redisService: RedisService,
     ) {}
 
     async createOrder(
@@ -37,6 +39,7 @@ export class OrdersService {
             orderNumber,
             customerId: new Types.ObjectId(customerId),
         });
+        await this.redisService.delete('orders:all');
 
         return {
             success: true,
@@ -45,16 +48,29 @@ export class OrdersService {
         };
     }
 
-    async getOrders() {
-        const orders = await this.orderModel
-            .find()
-            .sort({ createdAt: -1 });
+   async getOrders() {
+  // Check Redis cache first
+  const cachedOrders = await this.redisService.get('orders:all');
 
-        return {
-            success: true,
-            data: orders,
-        };
-    }
+  if (cachedOrders) {
+    return cachedOrders;
+  }
+
+  // Fetch from MongoDB if cache is empty
+  const orders = await this.orderModel
+    .find()
+    .sort({ createdAt: -1 });
+
+  const response = {
+    success: true,
+    data: orders,
+  };
+
+  // Store result in Redis for 60 seconds
+  await this.redisService.set('orders:all', response, 60);
+
+  return response;
+}
 
     async getOrderById(id: string) {
     const order = await this.orderModel.findOne({

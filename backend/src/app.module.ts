@@ -9,6 +9,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './users/users.module';
 import { DeliveriesModule } from './deliveries/deliveries.module';
 import { OrdersModule } from './orders/orders.module';
+import { RedisModule } from './common/redis/redis.module';
 
 
 
@@ -20,6 +21,7 @@ import { OrdersModule } from './orders/orders.module';
     UsersModule,
     DeliveriesModule,
     OrdersModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

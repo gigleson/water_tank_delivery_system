@@ -10,6 +10,13 @@ import {
     PaymentStatus,
     OrderStatus,
 } from './model/order.model';
+import { RedisService } from '../common/redis/redis.service';
+const mockRedisService = {
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  delete: jest.fn().mockResolvedValue(undefined),
+};
+
 
 describe('OrdersService', () => {
     let service: OrdersService;
@@ -24,6 +31,7 @@ describe('OrdersService', () => {
     };
 
     beforeEach(async () => {
+        
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 OrdersService,
@@ -31,6 +39,10 @@ describe('OrdersService', () => {
                     provide: getModelToken(Order.name),
                     useValue: mockOrderModel,
                 },
+                 {
+      provide: RedisService,
+      useValue: mockRedisService,
+    },
             ],
         }).compile();
 

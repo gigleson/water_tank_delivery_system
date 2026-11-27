@@ -1,16 +1,19 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import {
-  
+
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  StreamableFile,
   
   
 } from '@nestjs/common';
 import { DeliveriesService } from './deliveries.service';
 import { DeliveryStatus } from './model/delivery.model';
-
+import { join } from 'path';
+import * as fs from 'fs';
+import { DeliveriesController } from './deliveries.controller';
 describe('DeliveriesService - updateDeliveryStatus', () => {
   let service: DeliveriesService;
 
@@ -159,4 +162,135 @@ describe('DeliveriesService - updateDeliveryStatus', () => {
       ),
     ).rejects.toThrow(NotFoundException);
   });
+  it('should return payment photo successfully', async () => {
+  const directory = join(process.cwd(), 'uploads/payment-photos');
+  const filename = `test-${Date.now()}.png`;
+  const filePath = join(directory, filename);
+  const relativePath = `uploads/payment-photos/${filename}`;
+
+  fs.mkdirSync(directory, { recursive: true });
+  fs.writeFileSync(filePath, Buffer.from('test image'));
+
+  try {
+    mockDelivery.paymentPhoto = relativePath;
+    deliveryModel.findById.mockResolvedValue(mockDelivery);
+
+    const result = await service.getPaymentPhoto(deliveryId);
+
+    expect(result).toBeInstanceOf(StreamableFile);
+
+    result.getStream().destroy();
+  } finally {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
 });
+
+it('should throw NotFoundException when delivery does not exist', async () => {
+  deliveryModel.findById.mockResolvedValue(null);
+
+  await expect(
+    service.getPaymentPhoto(deliveryId),
+  ).rejects.toThrow(NotFoundException);
+});
+
+it('should throw NotFoundException when payment photo does not exist', async () => {
+  mockDelivery.paymentPhoto = undefined;
+  deliveryModel.findById.mockResolvedValue(mockDelivery);
+
+  await expect(
+    service.getPaymentPhoto(deliveryId),
+  ).rejects.toThrow(NotFoundException);
+});
+
+it('should throw NotFoundException when payment photo file is missing', async () => {
+  mockDelivery.paymentPhoto =
+    'uploads/payment-photos/non-existing-image.png';
+
+  deliveryModel.findById.mockResolvedValue(mockDelivery);
+
+  await expect(
+    service.getPaymentPhoto(deliveryId),
+  ).rejects.toThrow(NotFoundException);
+});
+describe('DeliveriesController - uploadPaymentPhoto', () => {
+  let controller: DeliveriesController;
+  let deliveriesService: {
+    uploadPaymentPhoto: jest.Mock;
+  };
+
+  const deliveryId = '6b0811e89538b652cf4d05d1';
+
+  beforeEach(async () => {
+    deliveriesService = {
+      uploadPaymentPhoto: jest.fn().mockResolvedValue({
+        success: true,
+        message: 'Payment photo uploaded successfully',
+      }),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [DeliveriesController],
+      providers: [
+        {
+          provide: DeliveriesService,
+          useValue: deliveriesService,
+        },
+      ],
+    }).compile();
+
+    controller = module.get<DeliveriesController>(
+      DeliveriesController,
+    );
+  });
+
+  it('should upload payment photo successfully', async () => {
+    const file = {
+      originalname: 'payment.png',
+      mimetype: 'image/png',
+      size: 1024,
+      buffer: Buffer.from('test image'),
+    } as Express.Multer.File;
+
+    const result = await controller.uploadPaymentPhoto(
+      deliveryId,
+      file,
+    );
+
+    expect(deliveriesService.uploadPaymentPhoto).toHaveBeenCalledWith(
+      deliveryId,
+      file,
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it('should reject when payment photo is missing', async () => {
+    await expect(
+      controller.uploadPaymentPhoto(deliveryId, undefined as any),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(
+      deliveriesService.uploadPaymentPhoto,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('should pass the correct delivery ID to the service', async () => {
+    const file = {
+      originalname: 'receipt.jpg',
+      mimetype: 'image/jpeg',
+      size: 2048,
+      buffer: Buffer.from('test image'),
+    } as Express.Multer.File;
+
+    await controller.uploadPaymentPhoto(deliveryId, file);
+
+    expect(
+      deliveriesService.uploadPaymentPhoto.mock.calls[0][0],
+    ).toBe(deliveryId);
+  });
+});
+});
+
+

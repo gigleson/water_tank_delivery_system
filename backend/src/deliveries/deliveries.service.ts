@@ -2,18 +2,21 @@ import {
     BadRequestException,
     ForbiddenException,
     Injectable,
+    InternalServerErrorException,
     NotFoundException,
+    StreamableFile,
 } from '@nestjs/common';
 
 import { randomUUID } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
-import { join, extname } from 'path';
+import { join, extname, resolve } from 'path';
 import { Delivery, DeliveryDocument, DeliveryStatus } from './model/delivery.model';
 import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { Users } from '../users/model/users.model';
 import { OrdersService } from '../orders/orders.service';
+import { createReadStream, existsSync } from 'fs';
 @Injectable()
 export class DeliveriesService {
   
@@ -213,6 +216,54 @@ async updateDeliveryStatus(
     message: 'Delivery status updated successfully',
     data: delivery,
   };
+}
+async getPaymentPhoto(id: string): Promise<StreamableFile> {
+  const delivery = await this.deliveryModel.findById(id);
+
+  if (!delivery) {
+    throw new NotFoundException('Delivery not found');
+  }
+
+  if (!delivery.paymentPhoto) {
+    throw new NotFoundException('Payment photo not found');
+  }
+
+  const uploadDirectory = resolve(
+    process.cwd(),
+    'uploads/payment-photos',
+  );
+
+  const filePath = resolve(process.cwd(), delivery.paymentPhoto);
+
+  // Prevent access to files outside the payment-photo directory.
+  if (!filePath.startsWith(uploadDirectory + '/') &&
+      !filePath.startsWith(uploadDirectory + '\\')) {
+    throw new InternalServerErrorException('Invalid payment photo path');
+  }
+
+  if (!existsSync(filePath)) {
+    throw new NotFoundException('Payment photo file not found');
+  }
+
+  const extension = extname(filePath).toLowerCase();
+
+  const mimeTypes: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+  };
+
+  const contentType = mimeTypes[extension];
+
+  if (!contentType) {
+    throw new InternalServerErrorException('Unsupported payment photo type');
+  }
+
+  return new StreamableFile(createReadStream(filePath), {
+    type: contentType,
+    disposition: 'inline',
+  });
 }
 
 }

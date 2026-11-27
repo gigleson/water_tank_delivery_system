@@ -2,7 +2,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-
+import { HttpExceptionFilter } from './common/filters/http-exception.filter.ts';
 
 import { AppModule } from './app.module';
 import helmet from 'helmet';
@@ -16,6 +16,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
 });
+app.useGlobalFilters(new HttpExceptionFilter());
 
     // Global validation
     app.useGlobalPipes(

@@ -1,5 +1,6 @@
 import {
     BadRequestException,
+    ForbiddenException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
@@ -162,12 +163,16 @@ async updateDeliveryStatus(
 
   // Drivers can only update their own deliveries.
   if (role === 'DRIVER') {
-    if (!delivery.driverId || delivery.driverId.toString() !== userId) {
-      throw new BadRequestException(
-        'You are not assigned to this delivery',
-      );
-    }
+  if (!delivery.driverId || delivery.driverId.toString() !== userId) {
+    throw new ForbiddenException(
+      'You are not assigned to this delivery',
+    );
   }
+} else if (role !== 'ADMIN') {
+  throw new ForbiddenException(
+    'You are not allowed to update delivery status',
+  );
+}
 
   // Define permitted status transitions.
   const allowedTransitions: Record<string, DeliveryStatus[]> = {

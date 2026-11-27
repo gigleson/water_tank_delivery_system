@@ -32,6 +32,8 @@ import {
     ApiResponse,
     ApiParam,
     ApiBody,
+    ApiProduces,
+    ApiConsumes,
 } from '@nestjs/swagger';
 
 import { DeliveriesService } from './deliveries.service';
@@ -119,33 +121,71 @@ export class DeliveriesController {
     ) {
         return this.deliveriesService.getDeliveryById(id);
     }
-    @Post(':id/payment-photo')
+
+@Post(':id/payment-photo')
 @UseInterceptors(
-    FileInterceptor('paymentPhoto', paymentPhotoUploadConfig),
+  FileInterceptor('paymentPhoto', paymentPhotoUploadConfig),
 )
+@ApiOperation({
+  summary: 'Upload delivery payment photo',
+  description:
+    'Uploads a payment receipt image for a delivery. ' +
+    'Only JPEG, PNG and WEBP images up to 5 MB are accepted.',
+})
+@ApiParam({
+  name: 'id',
+  description: 'MongoDB delivery ID',
+  example: '6b0811e89538b652cf4d05d1',
+})
+@ApiConsumes('multipart/form-data')
+@ApiBody({
+  schema: {
+    type: 'object',
+    properties: {
+      paymentPhoto: {
+        type: 'string',
+        format: 'binary',
+        description: 'Payment receipt image (JPEG, PNG or WEBP)',
+      },
+    },
+    required: ['paymentPhoto'],
+  },
+})
+@ApiResponse({
+  status: 200,
+  description: 'Payment photo uploaded successfully',
+})
+@ApiResponse({
+  status: 400,
+  description: 'Missing file, invalid file type or file too large',
+})
+@ApiResponse({
+  status: 404,
+  description: 'Delivery not found',
+})
 async uploadPaymentPhoto(
-    @Param('id') id: string,
-
-    @UploadedFile(
-        new ParseFilePipe({
-            validators: [
-                new MaxFileSizeValidator({
-                    maxSize: 5 * 1024 * 1024,
-                }),
-                new FileTypeValidator({
-                    fileType: /^image\/(jpeg|png|webp)$/,
-                }),
-            ],
+  @Param('id') id: string,
+  @UploadedFile(
+    new ParseFilePipe({
+      validators: [
+        new MaxFileSizeValidator({
+          maxSize: 5 * 1024 * 1024,
         }),
-    )
-    file: Express.Multer.File,
+        new FileTypeValidator({
+          fileType: /^image\/(jpeg|png|webp)$/,
+        }),
+      ],
+    }),
+  )
+  file: Express.Multer.File,
 ) {
-    if (!file) {
-        throw new BadRequestException('Payment photo is required');
-    }
+  if (!file) {
+    throw new BadRequestException('Payment photo is required');
+  }
 
-    return this.deliveriesService.uploadPaymentPhoto(id, file);
+  return this.deliveriesService.uploadPaymentPhoto(id, file);
 }
+
 
 
 @Patch(':id/status')
@@ -211,4 +251,38 @@ async updateDeliveryStatus(
   );
 }
 
+@Get(':id/payment-photo')
+@ApiOperation({
+  summary: 'Retrieve delivery payment photo',
+  description: 'Returns the uploaded payment photo as an image.',
+})
+@ApiParam({
+  name: 'id',
+  description: 'MongoDB delivery ID',
+})
+@ApiProduces('image/jpeg', 'image/png', 'image/webp')
+@ApiResponse({
+  status: 200,
+  description: 'Payment photo retrieved successfully',
+  content: {
+    'image/jpeg': {
+      schema: { type: 'string', format: 'binary' },
+    },
+    'image/png': {
+      schema: { type: 'string', format: 'binary' },
+    },
+    'image/webp': {
+      schema: { type: 'string', format: 'binary' },
+    },
+  },
+})
+@ApiResponse({
+  status: 404,
+  description: 'Delivery or payment photo not found',
+})
+async getPaymentPhoto(
+  @Param('id') id: string,
+) {
+  return this.deliveriesService.getPaymentPhoto(id);
+}
 }

@@ -17,6 +17,7 @@ import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { Users } from '../users/model/users.model';
 import { OrdersService } from '../orders/orders.service';
 import { createReadStream, existsSync } from 'fs';
+import { RedisService } from '../common/redis/redis.service';
 @Injectable()
 export class DeliveriesService {
   
@@ -28,6 +29,7 @@ export class DeliveriesService {
         private readonly userModel: Model<Users>,
 
         private readonly ordersService: OrdersService,
+        private readonly redisService: RedisService,
     ) {}
 
     // CREATE DELIVERY
@@ -71,6 +73,7 @@ export class DeliveriesService {
                 : undefined,
             notes: dto.notes,
         });
+        await this.redisService.delete('deliveries:all');
 
         return {
             success: true,
@@ -80,19 +83,29 @@ export class DeliveriesService {
     }
     // GET ALL DELIVERIES
 async getDeliveries() {
-    const deliveries = await this.deliveryModel
-        .find()
-        .populate('orderId')
-        .populate({
-      path: 'driverId',
-      select: '-password',
-    })
-        .sort({ createdAt: -1 });
+  // Check Redis first
+  const cachedDeliveries = await this.redisService.get('deliveries:all');
 
-    return {
-        success: true,
-        data: deliveries,
-    };
+  if (cachedDeliveries) {
+    return cachedDeliveries;
+  }
+
+  // Fetch from MongoDB
+  const deliveries = await this.deliveryModel
+    .find()
+    .populate('orderId')
+    .populate('driverId', '-password')
+    .sort({ createdAt: -1 });
+
+  const response = {
+    success: true,
+    data: deliveries,
+  };
+
+  // Cache for 60 seconds
+  await this.redisService.set('deliveries:all', response, 60);
+
+  return response;
 }
 
 // GET DELIVERY BY ID
@@ -145,7 +158,7 @@ async uploadPaymentPhoto(
     delivery.paymentPhoto = `uploads/payment-photos/${filename}`;
 
     await delivery.save();
-
+    await this.redisService.delete('deliveries:all');
     return {
         success: true,
         message: 'Payment photo uploaded successfully',
@@ -210,7 +223,7 @@ async updateDeliveryStatus(
   delivery.deliveryStatus = newStatus;
 
   await delivery.save();
-
+  await this.redisService.delete('deliveries:all');
   return {
     success: true,
     message: 'Delivery status updated successfully',
@@ -259,7 +272,7 @@ async getPaymentPhoto(id: string): Promise<StreamableFile> {
   if (!contentType) {
     throw new InternalServerErrorException('Unsupported payment photo type');
   }
-
+  
   return new StreamableFile(createReadStream(filePath), {
     type: contentType,
     disposition: 'inline',

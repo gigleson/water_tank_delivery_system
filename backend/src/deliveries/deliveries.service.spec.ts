@@ -14,6 +14,11 @@ import { DeliveryStatus } from './model/delivery.model';
 import { join } from 'path';
 import * as fs from 'fs';
 import { DeliveriesController } from './deliveries.controller';
+const mockRedisService = {
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  delete: jest.fn().mockResolvedValue(undefined),
+};
 describe('DeliveriesService - updateDeliveryStatus', () => {
   let service: DeliveriesService;
 
@@ -50,6 +55,7 @@ describe('DeliveriesService - updateDeliveryStatus', () => {
       deliveryModel as any,
       userModel as any,
       ordersService as any,
+      mockRedisService as any
     );
   });
 

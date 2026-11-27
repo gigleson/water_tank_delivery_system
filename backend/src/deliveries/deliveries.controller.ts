@@ -31,6 +31,7 @@ import {
     ApiOperation,
     ApiResponse,
     ApiParam,
+    ApiBody,
 } from '@nestjs/swagger';
 
 import { DeliveriesService } from './deliveries.service';
@@ -146,13 +147,61 @@ async uploadPaymentPhoto(
     return this.deliveriesService.uploadPaymentPhoto(id, file);
 }
 
+
 @Patch(':id/status')
-@ApiOperation({ summary: 'Update delivery status' })
-@ApiResponse({ status: 200, description: 'Delivery status updated' })
+@ApiOperation({
+  summary: 'Update delivery status',
+  description:
+    'Allows an assigned driver or admin to update delivery status. ' +
+    'Valid transitions: ASSIGNED → ACCEPTED → ON_THE_WAY → DELIVERED. ' +
+    'FAILED is also allowed from ACCEPTED or ON_THE_WAY.',
+})
+@ApiParam({
+  name: 'id',
+  description: 'MongoDB delivery ID',
+  example: '6b0811e89538b652cf4d05d1',
+})
+@ApiBody({
+  type: UpdateDeliveryStatusDto,
+  examples: {
+    accept: {
+      summary: 'Accept delivery',
+      value: { deliveryStatus: 'ACCEPTED' },
+    },
+    onTheWay: {
+      summary: 'Start delivery',
+      value: { deliveryStatus: 'ON_THE_WAY' },
+    },
+    delivered: {
+      summary: 'Complete delivery',
+      value: { deliveryStatus: 'DELIVERED' },
+    },
+  },
+})
+@ApiResponse({
+  status: 200,
+  description: 'Delivery status updated successfully',
+})
+@ApiResponse({
+  status: 400,
+  description: 'Invalid status transition',
+})
+@ApiResponse({
+  status: 401,
+  description: 'Unauthorized',
+})
+@ApiResponse({
+  status: 403,
+  description: 'User is not allowed to update this delivery',
+})
+@ApiResponse({
+  status: 404,
+  description: 'Delivery not found',
+})
 async updateDeliveryStatus(
   @Param('id') id: string,
   @Body() dto: UpdateDeliveryStatusDto,
-  @Req() req: AuthenticatedRequest
+  @Req() req: AuthenticatedRequest,
 ) {
   return this.deliveriesService.updateDeliveryStatus(
     id,
@@ -161,4 +210,5 @@ async updateDeliveryStatus(
     req.user.role,
   );
 }
+
 }

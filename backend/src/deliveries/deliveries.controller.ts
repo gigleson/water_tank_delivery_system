@@ -5,6 +5,8 @@ import {
     ParseFilePipe,
     MaxFileSizeValidator,
     FileTypeValidator,
+    Patch,
+    Req,
 } from '@nestjs/common';
 
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -33,7 +35,14 @@ import {
 
 import { DeliveriesService } from './deliveries.service';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
-
+import { UpdateDeliveryStatusDto } from './dto/update-delivery-status.dto';
+interface AuthenticatedRequest extends Request {
+  user: {
+    userId: string;
+    email: string;
+    role: string;
+  };
+}
 
 @ApiTags('Deliveries')
 @ApiBearerAuth()
@@ -137,4 +146,19 @@ async uploadPaymentPhoto(
     return this.deliveriesService.uploadPaymentPhoto(id, file);
 }
 
+@Patch(':id/status')
+@ApiOperation({ summary: 'Update delivery status' })
+@ApiResponse({ status: 200, description: 'Delivery status updated' })
+async updateDeliveryStatus(
+  @Param('id') id: string,
+  @Body() dto: UpdateDeliveryStatusDto,
+  @Req() req: AuthenticatedRequest
+) {
+  return this.deliveriesService.updateDeliveryStatus(
+    id,
+    dto.deliveryStatus,
+    req.user.userId,
+    req.user.role,
+  );
+}
 }

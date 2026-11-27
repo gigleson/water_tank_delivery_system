@@ -12,6 +12,7 @@ import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { Users } from '../users/model/users.model';
+import { OrdersService } from '../orders/orders.service';
 @Injectable()
 export class DeliveriesService {
   
@@ -78,7 +79,10 @@ async getDeliveries() {
     const deliveries = await this.deliveryModel
         .find()
         .populate('orderId')
-        .populate('driverId')
+        .populate({
+      path: 'driverId',
+      select: '-password',
+    })
         .sort({ createdAt: -1 });
 
     return {
@@ -92,7 +96,10 @@ async getDeliveryById(id: string) {
     const delivery = await this.deliveryModel
         .findById(id)
         .populate('orderId')
-        .populate('driverId');
+        .populate({
+      path: 'driverId',
+      select: '-password',
+    })
 
     if (!delivery) {
         throw new NotFoundException('Delivery not found');
@@ -140,6 +147,67 @@ async uploadPaymentPhoto(
         message: 'Payment photo uploaded successfully',
         paymentPhoto: delivery.paymentPhoto,
     };
+}
+async updateDeliveryStatus(
+  id: string,
+  newStatus: DeliveryStatus,
+  userId: string,
+  role: string,
+) {
+  const delivery = await this.deliveryModel.findById(id);
+
+  if (!delivery) {
+    throw new NotFoundException('Delivery not found');
+  }
+
+  // Drivers can only update their own deliveries.
+  if (role === 'DRIVER') {
+    if (!delivery.driverId || delivery.driverId.toString() !== userId) {
+      throw new BadRequestException(
+        'You are not assigned to this delivery',
+      );
+    }
+  }
+
+  // Define permitted status transitions.
+  const allowedTransitions: Record<string, DeliveryStatus[]> = {
+    [DeliveryStatus.ASSIGNED]: [DeliveryStatus.ACCEPTED],
+    [DeliveryStatus.ACCEPTED]: [
+      DeliveryStatus.ON_THE_WAY,
+      DeliveryStatus.FAILED,
+    ],
+    [DeliveryStatus.ON_THE_WAY]: [
+      DeliveryStatus.DELIVERED,
+      DeliveryStatus.FAILED,
+    ],
+  };
+
+  const allowedStatuses = allowedTransitions[delivery.deliveryStatus] || [];
+
+  if (!allowedStatuses.includes(newStatus)) {
+    throw new BadRequestException(
+      `Cannot change status from ${delivery.deliveryStatus} to ${newStatus}`,
+    );
+  }
+
+  // Automatically record timestamps.
+  if (newStatus === DeliveryStatus.ON_THE_WAY) {
+    delivery.startedAt = new Date();
+  }
+
+  if (newStatus === DeliveryStatus.DELIVERED) {
+    delivery.completedAt = new Date();
+  }
+
+  delivery.deliveryStatus = newStatus;
+
+  await delivery.save();
+
+  return {
+    success: true,
+    message: 'Delivery status updated successfully',
+    data: delivery,
+  };
 }
 
 }

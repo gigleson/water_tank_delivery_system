@@ -23,7 +23,7 @@ export class Delivery {
 
     @Prop({
         type: Types.ObjectId,
-        ref: 'User',
+        ref: 'Users',
     })
     driverId?: Types.ObjectId;
 
